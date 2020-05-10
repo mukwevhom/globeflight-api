@@ -16,9 +16,16 @@ app.use(bodyParser.urlencoded({ limit:'50mb',extended: true }));
 
 app.use('/labels',express.static('labels'));
 
-creds = {};
+let mdsHeaders = {
+    "X-App-Name": "Thump Shipping",
+    "X-App-Version": "0.2.1",
+    "X-App-Host": ".NET Framework 4.8",
+    "X-App-Lang": "C#",
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+}
 
-// Functions
+// Functions GlobeFlight
 async function sendRequest(qs) {
     let options = {
         method:'GET',
@@ -70,11 +77,45 @@ async function authenticate() {
     return {salt, token_id};
 }
 
+// MDS Function
+async function mdsLogin() {
+    let res = await request({
+            method: "POST",
+            uri:`https://api.collivery.co.za/v3/login`,
+            headers: mdsHeaders,
+            body: {
+                "email":"demo@collivery.co.za",
+                "password":"demo"
+            },
+            json: true,
+
+        }
+    );
+
+    return res;
+}
+
+// Shopify Functions
+async function getOrder(orderID) { 
+    let endpoint = `https://zuki-pet.myshopify.com/admin/api/2020-04/orders/${orderID}.json`;
+
+    let response = await request({
+        uri:endpoint,
+        headers: {
+            "X-Shopify-Access-Token": "0033747428b08917c69366b5e9e1c229"
+        },
+        json: true
+    });
+
+    return response.order;
+}
 // API Requests
 app.get('/', async (req, res) => {
     let creds = await authenticate();
 
-    return res.send('Shop');
+    let statusCode = creds ? 200 : 401;
+
+    return res.sendStatus(statusCode);
 });
 
 app.get('/requestQoutes', async (req, res) => {
@@ -214,7 +255,7 @@ app.get('/getRates', async (req, res) => {
         json: true
     });
 
-    let order = response.order;
+    let order = await getOrder(orderID);
     
     placesByPostcodeParams = {"postcode":`${order.shipping_address.zip}`}
     placesByNameParams = {"name":`${order.shipping_address.city}`}
@@ -346,6 +387,56 @@ app.get('/createLabel', async (req, res) => {
     });
 
     return res.send(collection);
+});
+
+app.get('/getMDSRates', async (req, res) => {
+    let {orderID} = req.query;
+
+    let selectedDate = "2020-05-11";
+
+    let loginData = await mdsLogin();
+
+    let order = await getOrder(orderID);
+
+    let getDeliverySuburb = await request({
+        uri: `https://api.collivery.co.za/v3/suburbs?api_token=${loginData.data.api_token}&country=ZAF&search=${order.shipping_address.city}`,
+        method: "GET",
+        headers: mdsHeaders,
+        json: true,
+    });
+
+    let response = await request({
+        uri: `https://api.collivery.co.za/v3/quote?api_token=${loginData.data.api_token}`,
+        method: "POST",
+        headers: mdsHeaders,
+        json: true,
+        body: {
+            "services": [
+                1,2,3,5
+            ],
+            "parcels": [
+                {
+                    "length": 21.5,
+                    "width": 10,
+                    "height": 5.5,
+                    "weight": 5.2,
+                    "quantity": order.line_items.length
+                }
+            ],
+            "collection_town": 147,
+            "delivery_town": getDeliverySuburb.data[0].town.id || 147,
+            "collection_location_type": 1,
+            "delivery_location_type": 5,
+            "collection_time": selectedDate+" 12:00",
+            "delivery_time": selectedDate+" 15:00",
+            "exclude_weekend": true,
+            "risk_cover": false,
+            "rica": false,
+            "consignee": true,
+            "sms_tracking": false
+        }
+    });
+    res.send(response.data);
 });
 
 app.listen(port, () => console.log(`Globeflight Postmen app listening at http://localhost:${port}`));
