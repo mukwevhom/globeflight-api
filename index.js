@@ -439,4 +439,68 @@ app.get('/getMDSRates', async (req, res) => {
     res.send(response.data);
 });
 
+app.get('/createMDSLabel', async (req, res) => {
+    let {service_type, orderID} = req.query;
+
+    let selectedDate = "2020-05-11";
+
+    let loginData = await mdsLogin();
+
+    let order = await getOrder(orderID);
+
+    let getDeliverySuburb = await request({
+        uri: `https://api.collivery.co.za/v3/suburbs?api_token=${loginData.data.api_token}&country=ZAF&search=${order.shipping_address.city}`,
+        method: "GET",
+        headers: mdsHeaders,
+        json: true,
+    });
+
+    let response = await request({
+        uri: `https://api.collivery.co.za/v3/waybill?api_token=${loginData.data.api_token}`,
+        method: "POST",
+        headers: mdsHeaders,
+        json: true,
+        body: {
+            "services": service_type,
+            "parcels": [
+                {
+                    "length": 21.5,
+                    "width": 10,
+                    "height": 5.5,
+                    "weight": 5.2,
+                    "quantity": order.line_items.length
+                }
+            ],
+            "collection_address": 952,
+            "collection_contact": 593,
+            "delivery_address": 955,
+            "delivery_contact": 596,
+            "collection_time": selectedDate+" 12:00",
+            "delivery_time": selectedDate+" 15:00",
+            "exclude_weekend": true,
+            "risk_cover": false,
+            "rica": false,
+            "consignee": true,
+            "sms_tracking": false
+        }
+    });
+
+    /* let waybillID = response.data.id;
+
+    let wayBillDocument = await request({
+        uri: `https://api.collivery.co.za/v3/waybill_documents/${waybillID}?api_token=${loginData.data.api_token}`,
+        method: "GET",
+        headers: mdsHeaders,
+        json: true,
+    });
+
+    let binaryData = new Buffer(wayBillDocument.data.image, 'base64').toString('binary');
+
+    fs.writeFile(`labels/label-${waybillID}.pdf`, binaryData, "binary", function(err) {
+        console.log(err); // writes out file without error, but it's not a valid image
+    }); */
+
+    res.send(response.data);
+});
+
 app.listen(port, () => console.log(`Globeflight Postmen app listening at http://localhost:${port}`));
