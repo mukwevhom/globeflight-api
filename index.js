@@ -5,6 +5,7 @@ const dotenv = require('dotenv');
 const request = require('request-promise');
 const md5 = require('md5');
 const moment = require("moment");
+const cors = require('cors');
 
 dotenv.config();
 
@@ -13,8 +14,12 @@ const port = process.env.PORT;
 
 app.use(bodyParser.json({limit:'50mb'}));
 app.use(bodyParser.urlencoded({ limit:'50mb',extended: true }));
-
+app.use(cors())
 app.use('/labels',express.static('labels'));
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    next();
+});
 
 let mdsHeaders = {
     "X-App-Name": "Thump Shipping",
@@ -41,25 +46,35 @@ async function sendRequest(qs) {
 }
 
 async function getSalt() {
-    let params = `{"email":"zuki@ecom.co.za"}`;
+    try {
+        let params = `{"email":"${process.env.PPERFECT_USERNAME}"}`;
 
-    let res = await sendRequest({class:"Auth",method:"getSalt",params});
+        let res = await sendRequest({class:"Auth",method:"getSalt",params});
 
-    if(res.errorcode === 0){
-        return res.results[0].salt;
-    } else {
+        if(res.errorcode === 0){
+            return res.results[0].salt;
+        } else {
+            return false;
+        }
+    } catch (error) {
+        console.log(error);
         return false;
     }
 }
 
 async function getSecureToken(salt) {
-    let params = `{"email":"zuki@ecom.co.za","password":"${md5(process.env.PPERFECT_PASSWORD+salt)}"}`;
+    try {
+        let params = `{"email":"${process.env.PPERFECT_USERNAME}","password":"${md5(process.env.PPERFECT_PASSWORD+salt)}"}`;
 
-    let res = await sendRequest({class:"Auth",method:"getSecureToken",params});
+        let res = await sendRequest({class:"Auth",method:"getSecureToken",params});
 
-    if(res.errorcode === 0){
-        return res.results[0].token_id;
-    } else {
+        if(res.errorcode === 0){
+            return res.results[0].token_id;
+        } else {
+            return false;
+        }
+    } catch (error) {
+        console.log(error);
         return false;
     }
 }
@@ -274,7 +289,7 @@ app.get('/getRates', async (req, res) => {
         "token_id":creds.token_id
     });
 
-    if(getPlacesByName.results){
+    if(getPlacesByName.results[0]){
         place = getPlacesByName.results[0];
     } else if(getPlacesByPostcode.results[0]){
         place = getPlacesByPostcode.results[0]
@@ -286,7 +301,7 @@ app.get('/getRates', async (req, res) => {
         "specinstruction":"testing",
         "reference":"testing",
         // Origin Details
-        "origperadd1":"Chris Irwin",
+        "origperadd1":"Zuki Pet",
         "origperadd2":"Unit 6A",
         "origperadd3":"APD Industrial Park 1",
         "origperadd4":"Elsecar Street",
@@ -364,29 +379,45 @@ app.get('/createLabel', async (req, res) => {
 
     let quoteToCollectionParams = {
         "quoteno": quoteNo,
-        "specinstruction":"special instructions",
-        "starttime":"11:00",
+        "specinstruction":"testing",
+        "starttime":"14:00",
         "endtime":"17:00",
         "quoteCollectionDate":moment(selectedDate,"YYYY-MM-DD").format("MM/DD/YYYY"),
-        "notes":"some notes here",
+        "notes":"testing",
         "printWaybill":"1",
         "printLabels":"1"
     };
 
-    let collection = await sendRequest({
-        "class":"Collection",
-        "method":"quoteToCollection",
-        "params":JSON.stringify(quoteToCollectionParams),
-        "token_id":creds.token_id
-    });
+    try {
 
-    let binaryData = new Buffer(collection.results[0].labelsBase64, 'base64').toString('binary');
+        let collection = await sendRequest({
+            "class":"Collection",
+            "method":"quoteToCollection",
+            "params":JSON.stringify(quoteToCollectionParams),
+            "token_id":creds.token_id
+        });
 
-    fs.writeFile(`labels/label-${quoteNo}.pdf`, binaryData, "binary", function(err) {
-        console.log(err); // writes out file without error, but it's not a valid image
-    });
+        if(collection.errorcode === 0) {
+            let binaryData = new Buffer(collection.results[0].labelsBase64, 'base64').toString('binary');
 
-    return res.send(collection);
+            fs.writeFile(`labels/label-${quoteNo}.pdf`, binaryData, "binary", function(err) {
+                if(err) {
+                    console.log(err); // writes out file without error, but it's not a valid image
+                    res.sendStatus(401);
+                }
+                
+                return;
+                
+            });
+
+            return res.send(collection);
+        } else {
+            res.sendStatus(401);
+        }
+    } catch(error) {
+        console.log(error);
+        res.sendStatus(401);
+    }
 });
 
 app.get('/getMDSRates', async (req, res) => {
