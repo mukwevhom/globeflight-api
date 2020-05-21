@@ -251,7 +251,7 @@ app.get('/requestQoutes', async (req, res) => {
 });
 
 app.get('/getRates', async (req, res) => {
-    let {orderID} = req.query;
+    let {orderID,length,width,height,weights} = req.query;
 
     let creds = await authenticate();
 
@@ -259,16 +259,6 @@ app.get('/getRates', async (req, res) => {
         place = {},
         placesByNameParams = {},
         placesByPostcodeParams = {};
-
-    let endpoint = `https://zuki-pet.myshopify.com/admin/api/2020-04/orders/${orderID}.json`;
-
-    let response = await request({
-        uri:endpoint,
-        headers: {
-            "X-Shopify-Access-Token": "0033747428b08917c69366b5e9e1c229"
-        },
-        json: true
-    });
 
     let order = await getOrder(orderID);
     
@@ -294,7 +284,7 @@ app.get('/getRates', async (req, res) => {
     } else if(getPlacesByPostcode.results[0]){
         place = getPlacesByPostcode.results[0]
     } else {
-        return res.send(400);
+        return res.sendStatus(400);
     }
 
     quotesParams.details = {
@@ -350,9 +340,8 @@ app.get('/getRates', async (req, res) => {
     return res.send(quotes.results[0]);
 });
 
-app.get('/updateQuotes', async (req, res) => {
-    
-    let {quoteNo, selectedRate} = req.query;
+app.post('/updateQuotes', async (req, res) => {
+    let {quoteNo, selectedRate,length,width,height,weights} = req.body;
 
     let updateServiceParams = {
         "quoteno":quoteNo,
@@ -371,9 +360,9 @@ app.get('/updateQuotes', async (req, res) => {
     return res.send(updateQuotes.results[0]);
 });
 
-app.get('/createLabel', async (req, res) => {
+app.post('/createLabel', async (req, res) => {
     
-    let {quoteNo, selectedDate} = req.query;
+    let {quoteNo, selectedDate} = req.body;
 
     let creds = await authenticate();
 
