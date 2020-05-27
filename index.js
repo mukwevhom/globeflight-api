@@ -401,6 +401,7 @@ app.post('/createLabel', async (req, res) => {
 
             return res.send(collection);
         } else {
+            
             res.sendStatus(401);
         }
     } catch(error) {
@@ -456,6 +457,7 @@ app.get('/getMDSRates', async (req, res) => {
             "sms_tracking": false
         }
     });
+    
     res.send(response.data);
 });
 
