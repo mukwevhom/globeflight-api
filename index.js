@@ -28,7 +28,7 @@ let mdsHeaders = {
     "X-App-Lang": "C#",
     "Content-Type": "application/json",
     "Accept": "application/json",
-}
+};
 
 // Functions GlobeFlight
 async function sendRequest(qs) {
@@ -371,7 +371,7 @@ app.post('/createLabel', async (req, res) => {
         "specinstruction":"testing",
         "starttime":"14:00",
         "endtime":"17:00",
-        "quoteCollectionDate":moment(selectedDate,"YYYY-MM-DD").format("MM/DD/YYYY"),
+        //"quoteCollectionDate":moment(selectedDate,"YYYY-MM-DD").format("MM/DD/YYYY"),
         "notes":"testing",
         "printWaybill":"1",
         "printLabels":"1"
@@ -386,7 +386,8 @@ app.post('/createLabel', async (req, res) => {
             "token_id":creds.token_id
         });
 
-        if(collection.errorcode === 0) {
+        if(collection.
+            errorcode === 0) {
             let binaryData = new Buffer(collection.results[0].labelsBase64, 'base64').toString('binary');
 
             fs.writeFile(`labels/label-${quoteNo}.pdf`, binaryData, "binary", function(err) {
