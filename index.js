@@ -369,13 +369,16 @@ app.post('/createLabel', async (req, res) => {
     let quoteToCollectionParams = {
         "quoteno": quoteNo,
         "specinstruction":"testing",
-        "starttime":"14:00",
+        "starttime":"11:00",
         "endtime":"17:00",
-        //"quoteCollectionDate":moment(selectedDate,"YYYY-MM-DD").format("MM/DD/YYYY"),
         "notes":"testing",
         "printWaybill":"1",
         "printLabels":"1"
     };
+
+    if(moment(selectedDate).isAfter(new Date(), 'day')){
+        quoteToCollectionParams.quoteCollectionDate = moment(selectedDate,"YYYY-MM-DD").format("MM/DD/YYYY");
+    }
 
     try {
 
